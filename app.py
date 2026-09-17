@@ -1,6 +1,13 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
+
+
+@app.route("/", methods=["GET"])
+def index():
+    """Serve the React frontend"""
+    return send_from_directory(app.static_folder, "index.html")
+
 
 # In-memory storage (simple for now — later you can connect a real DB)
 tasks = []
