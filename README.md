@@ -5,6 +5,8 @@ Infrastructure as Code (Terraform). Built as a hands-on project to
 demonstrate core DevOps/cloud skills: containerization, infrastructure
 automation, and cloud networking.
 
+![Live demo screenshot](screenshots/live-demo.png)
+
 ## What this project demonstrates
 
 - **Backend development** — REST API built with Flask (Python)
