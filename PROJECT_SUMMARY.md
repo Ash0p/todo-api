@@ -1,13 +1,13 @@
 # Project Summary — To-Do API Cloud Deployment
 
 A record of everything built and set up in this project, from a basic API
-to a cloud-deployable, Infrastructure-as-Code system.
+to a full-stack app deployed live on AWS using Infrastructure as Code.
 
 ---
 
 ## 1. Application (Backend)
 
-Built a simple REST API using **Python + Flask**.
+Built a REST API using **Python + Flask**.
 
 **Endpoints:**
 - `GET /health` — health check
@@ -23,98 +23,107 @@ itself.
 
 ---
 
-## 2. Version Control (Git & GitHub)
+## 2. Frontend
+
+Added a **React** frontend (loaded via CDN, no build tooling required),
+served directly by Flask from a `static/` folder. This keeps the whole
+app — frontend and backend — inside a single Docker container, so no
+extra infrastructure was needed to support it.
+
+**Files:** `static/index.html`
+
+---
+
+## 3. Version Control (Git & GitHub)
 
 - Installed Git, configured user identity
-- Initialized a local Git repository
-- Created a GitHub repository (`todo-api`)
-- Committed and pushed code with clear, descriptive commit messages
+- Created a GitHub repository and pushed code with clear commit messages
 - Repo: `https://github.com/Ash0p/todo-api`
 
 ---
 
-## 3. Containerization (Docker)
+## 4. Containerization (Docker)
 
 - Installed Docker Desktop (required enabling WSL2 on Windows first)
-- Wrote a `Dockerfile` that:
-  - Uses a lightweight Python base image
-  - Installs dependencies
-  - Copies the app code
-  - Runs the Flask app on container start
-- Built and tested the image locally (`docker build`, `docker run`)
-- Verified the app works identically inside a container as it did running
-  directly
+- Wrote a `Dockerfile` that installs dependencies, copies the app, and
+  runs it on container start
+- Built and tested the image locally, both with and without the frontend
 
 **Files:** `Dockerfile`
 
 ---
 
-## 4. Infrastructure as Code (Terraform)
+## 5. Infrastructure as Code (Terraform)
 
-- Installed Terraform and added it to the system PATH
-- Wrote Terraform configuration to provision AWS infrastructure
-  automatically, instead of manually clicking through the AWS Console
+Wrote Terraform configuration to provision AWS infrastructure
+automatically instead of using the AWS Console manually.
 
-**What the Terraform code defines:**
-- Uses AWS's **default VPC** (network) — no need to build networking
-  from scratch
-- A **Security Group** (firewall) allowing:
-  - Port 5000 (the app) from anywhere
-  - Port 22 (SSH) for server access
-- An **EC2 instance** (`t2.micro`, free-tier eligible) that:
-  - Automatically installs Docker on boot
-  - Clones the project from GitHub
-  - Builds and runs the Docker container — no manual setup needed after
-    deployment
+**What it creates:**
+- Uses AWS's default VPC (no custom networking needed)
+- A Security Group allowing port 5000 (app) and port 22 (SSH)
+- An SSH key pair, added after an early deployment issue, so the server
+  can be inspected directly if something goes wrong
+- An EC2 instance (`t2.micro`, free-tier eligible) that automatically
+  installs Docker, clones this repo, builds the image, and runs the
+  container on boot — with its setup logged to `/var/log/user-data.log`
+  for debugging
 
 **Files:** `terraform/main.tf`, `terraform/variables.tf`,
 `terraform/outputs.tf`, `terraform/user_data.sh.tpl`
 
 ---
 
-## 5. Cloud Account Setup (AWS)
+## 6. AWS Account & Deployment — what actually happened
 
-- Created an IAM user (instead of using the root account — a security
-  best practice)
-- Attached permissions and generated CLI access keys
-- Connected AWS CLI on the local machine (`aws configure`)
-- Set up a zero-spend billing alert to catch unexpected charges early
-
-**Status:** Original AWS account was found closed; submitted a
-reactivation request to AWS Support and is currently waiting on a
-response. Deployment (`terraform apply`) will run once account access is
-restored.
+- Created an IAM user with CLI access keys (instead of using root) and a
+  zero-spend billing alert
+- Connected AWS CLI (`aws configure`) using the IAM user's access key
+- **First deploy** (`terraform apply`) succeeded and produced a public
+  IP, but the app returned "Not Found" — traced this to the frontend
+  files not having been pushed to GitHub yet, so the server had pulled
+  an older version of the code
+- Fixed the repo, then **redeployed** — this time the server became
+  unreachable entirely. Since there was no way to inspect the server
+  (no SSH key had been set up), added an `aws_key_pair` resource and
+  startup logging to Terraform for future debugging
+- **Redeployed again** with the SSH key in place — this time it worked:
+  the live app was reachable at a public AWS IP, frontend and backend
+  both working correctly, confirmed by testing and a screenshot
+- Ran `terraform destroy` immediately after confirming it worked, to
+  stop AWS charges. Verified in the AWS Console that the EC2 instance
+  showed as **terminated**
 
 ---
 
-## 6. Documentation
+## 7. Documentation
 
-- Wrote a `README.md` covering:
-  - Project purpose and architecture diagram
-  - Tech stack
-  - API reference
-  - How to run locally, in Docker, and deploy via Terraform
-  - Honest list of what could be improved with more time/scope
+- `README.md` — project purpose, architecture, tech stack, API
+  reference, how to run locally/Docker/AWS, and a live demo screenshot
+- `.gitignore` — excludes Python cache files, Terraform state, and the
+  private SSH key from ever being committed
+- `LICENSE` — MIT License
 
 ---
 
 ## Skills demonstrated by this project
 
-- REST API development (Python/Flask)
+- REST API development (Python/Flask) and a React frontend
 - Git & GitHub workflows
 - Docker & containerization
 - Infrastructure as Code (Terraform)
-- AWS fundamentals: EC2, Security Groups, IAM, VPC
-- Reading and troubleshooting real error messages (WSL setup, PATH
-  configuration, AWS account issues)
+- AWS fundamentals: EC2, Security Groups, IAM, key pairs, default VPC
+- **Real troubleshooting**: diagnosing a stale deployment from an
+  out-of-date repo, recognizing that "running" in EC2 doesn't mean the
+  app inside is healthy, and adding SSH access and logging specifically
+  to debug a failure — then successfully redeploying
+- Cost awareness: billing alerts, using free-tier resources, and
+  tearing down infrastructure immediately after use
 
 ---
 
-## Not yet done / possible next steps
+## Current status
 
-- [ ] Run `terraform apply` once AWS account is reactivated
-- [ ] Test the live deployed app and capture a screenshot/recording
-- [ ] Run `terraform destroy` after testing to avoid ongoing charges
-- [ ] (Optional) Add GitHub Actions for CI/CD automation
-- [ ] (Optional) Replace in-memory storage with AWS RDS
-- [ ] (Optional) Add a Load Balancer + Auto Scaling Group
+The app is **not** currently running live (destroyed after testing, to
+avoid ongoing AWS charges). Everything needed to bring it back is saved
+in this repo — running `terraform apply` inside the `terraform` folder
+recreates the exact same environment in a few minutes.
